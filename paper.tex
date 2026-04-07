@@ -1,0 +1,376 @@
+\documentclass[12pt,a4paper]{article}
+
+% ---------- Packages ----------
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{times}
+\usepackage{graphicx}
+\usepackage{hyperref}
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage[labelfont=bf]{caption}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{geometry}
+\geometry{margin=1in}
+
+% ---------- Code listing style ----------
+\lstset{
+  language=Python,
+  basicstyle=\ttfamily\small,
+  keywordstyle=\color{blue},
+  stringstyle=\color{red!60!green!60!blue},
+  commentstyle=\color{green!40!black},
+  numbers=left,
+  numbersep=5pt,
+  stepnumber=1,
+  breaklines=true,
+  frame=single,
+  backgroundcolor=\color{gray!5},
+  captionpos=b,
+  tabsize=2,
+}
+
+% ---------- PDF metadata ----------
+\hypersetup{
+  pdfauthor={Max — BioTender},
+  pdftitle={PyMolClaw: 13 PyMOL Scripts for AI Agent Molecular Visualization},
+  pdfsubject={Molecular Visualization, PyMOL, AI Agents},
+  pdfkeywords={molecular visualization, pymol, protein structure, scientific figures, ai agent, drug discovery, structural biology},
+}
+
+% ---------- Title ----------
+\title{
+  \LARGE\bfseries PyMolClaw: 13 PyMOL Scripts for AI Agent\\[4pt] Molecular Visualization
+}
+\author{
+  Max --- BioTender\\[4pt]
+  \normalsize\itshape github.com/junior1p/PyMolClaw
+}
+\date{\today}
+
+% ---------- Document ----------
+\begin{document}
+
+\maketitle
+\thispagestyle{empty}
+
+\vspace{-8pt}
+\noindent\textbf{Abstract.} PyMolClaw is a molecular visualization framework that equips AI agents with 13 executable PyMOL scripts covering structure alignment, binding site analysis, protein-protein interfaces, active site mapping, mutation analysis, molecular surfaces, B-factor/pLDDT spectrum coloring, electron density visualization, NMR/MD ensemble rendering, Goodsell-style scientific illustration, and tweened animation. Each script converts a natural language request into three artifacts: a publication-quality PNG figure, a reproducible PML (PyMOL command) script, and an interactive PSE session file. The framework requires only a standard PyMOL installation and is distributable as a Claude Code skill. We demonstrate each capability with concrete command examples and compare PyMolClaw to existing visualization workflows.
+
+\vspace{8pt}
+\noindent\textbf{Availability.} Source code: \url{https://github.com/junior1p/PyMolClaw}; Live skill: \url{https://clawrxiv.io/abs/2604.01493}
+
+\newpage
+
+% =============================================================================
+\section{Introduction}
+% =============================================================================
+
+Molecular visualization is central to structural biology, drug discovery, and protein engineering. Generating publication-quality figures typically requires a human researcher to operate PyMOL (Schr\"odinger, LLC) interactively, writing sequences of commands and adjusting visual parameters manually. This creates a bottleneck when an AI agent needs to produce structural figures autonomously---for example, to illustrate a mutation site during a protein-design conversation, or to render a binding pose after a docking calculation.
+
+PyMolClaw bridges this gap by providing AI agents with 13 pre-built, self-contained scripts that map natural language task descriptions to PyMOL rendering commands. The agent identifies the task type (e.g., \emph{binding site analysis}, \emph{RMSD alignment}), selects the appropriate script, executes it headlessly via PyMOL's \texttt{-c -q} command-line mode, and returns three artifacts: a raster PNG figure, a human-readable PML script for reproducibility, and a binary PSE session for interactive exploration.
+
+PyMolClaw is intentionally minimal: a single dependency (PyMOL) and a flat directory of Python scripts. No external servers, no database queries, no GUI required. The entire workflow runs in a headless environment.
+
+% =============================================================================
+\section{Architecture}
+% =============================================================================
+
+Each of the 13 scripts follows an identical four-stage pipeline, illustrated in Figure~\ref{fig:pipeline}.
+
+\begin{figure}[htbp]
+\centering
+\small
+\begin{tabular}{|p{0.88\textwidth}}\hline
+\texttt{1. Parse  →  argparse: task args (PDB ID, chains, ligands, options)}\\
+\texttt{2. Generate → write .pml file (PyMOL commands)}\\
+\texttt{3. Execute  →  subprocess.run(["pymol", "-c", "-q", "script.pml"])}\\
+\texttt{4. Deliver  →  output/figure.png  output/figure.pml  output/figure.pse}\\\hline
+\end{tabular}
+\caption{Pipeline: natural language task → PyMOL command script → rendered artifacts.}
+\label{fig:pipeline}
+\end{figure}
+
+\subsection{Shared Conventions}
+
+All scripts share a set of common conventions to ensure visual consistency:
+
+\begin{itemize}
+  \item \textbf{Print-ready colors.} A \texttt{space cmyk} preset loads CMYK-safe RGB values.
+  \item \textbf{Hydrogen-free views.} \texttt{remove elem H} produces clean depictions without polar hydrogens.
+  \item \textbf{Session preservation.} \texttt{save figure.pse} is called before \texttt{ray} so the interactive session captures the pre-rendered state.
+  \item \textbf{Async-safe fetching.} \texttt{fetch} uses \texttt{async=0} to prevent race conditions in headless batch execution.
+  \item \textbf{Graceful termination.} Each PML script ends with \texttt{quit} to prevent hanging.
+\end{itemize}
+
+\subsection{Output Artifacts}
+
+For every execution, three files are written:
+
+\begin{description}
+  \item[\texttt{output/figure.png}] Raster image at the requested resolution (default 1200×900 px), rendered via PyMOL's \texttt{ray} tracer.
+  \item[\texttt{output/figure.pml}] Plain-text PML script containing all PyMOL commands. Researchers can replay, modify, or batch-process these scripts independently.
+  \item[\texttt{output/figure.pse}] Binary PyMOL session file. Double-clicking opens the scene interactively in a PyMOL GUI.
+\end{description}
+
+% =============================================================================
+\section{Capabilities: 13 Scripts}
+% =============================================================================
+
+\input{_scripts_table.tex}
+
+\subsection{Structure Alignment (\texttt{align.py})}
+\label{sec:align}
+
+Aligns two or more protein structures and reports the pairwise RMSD. The script accepts a reference PDB ID and one or more target PDB IDs, generates the appropriate \texttt{align} or \texttt{cealign} command, and outputs a publication-ready superposition figure (Figure~\ref{fig:align}) plus a CSV RMSD table.
+
+\begin{lstlisting}[caption={align.py usage}, label=lst:align]
+$ pymol -c -q align.py --ref 1ubq --targets 4hhb 2hhb --output aligned
+# Output: aligned_rmsd.csv, aligned.png, aligned.pml, aligned.pse
+\end{lstlisting}
+
+\begin{figure}[htbp]
+\centering
+\fbox{Structure superposition of 1ubq (cyan) onto 4hhb (magenta)}\\[4pt]
+\fbox{RMSD: 2.31 Å over 71 C$\alpha$ atoms}
+\caption{Output of \texttt{align.py}.}
+\label{fig:align}
+\end{figure}
+
+\subsection{Protein Overview (\texttt{overview.py})}
+\label{sec:overview}
+
+Renders a standard overview figure showing secondary structure, domain coloring, and chain topology. Useful as the first panel of a multi-figure manuscript figure. Supports chain-specific coloring schemes.
+
+\begin{lstlisting}[caption={overview.py usage}, label=lst:overview]
+$ pymol -c -q overview.py --pdb 6m0j --chains A,B --output overview
+\end{lstlisting}
+
+\subsection{Ligand Binding Site (\texttt{binding\_site.py})}
+\label{sec:binding_site}
+
+Extracts and renders the ligand binding site with all polar contacts (hydrogen bonds, halogen bonds, salt bridges, $\pi$--$\pi$ and cation--$\pi$ interactions) labeled. Residues within 4.5~\AA\ of the ligand are shown as sticks; the ligand is shown as spheres. All contact distances are annotated.
+
+\begin{lstlisting}[caption={binding\_site.py usage}, label=lst:binding]
+$ pymol -c -q binding_site.py --pdb 1abc --ligand LIG --chain A --distance-cutoff 4.5
+\end{lstlisting}
+
+\subsection{Protein-Protein Interface (\texttt{ppi.py})}
+\label{sec:ppi}
+
+Highlights the interaction surface between two protein chains. Generates a complementary surface coloring (one chain colored by hydrophobicity, the other by electrostatic potential) and labels inter-chain contacts. Ideal for illustrating homodimers or antibody--antigen complexes.
+
+\begin{lstlisting}[caption={ppi.py usage}, label=lst:ppi]
+$ pymol -c -q ppi.py --pdb 1fat --chains A,B --output ppi
+\end{lstlisting}
+
+\subsection{Goodsell Style (\texttt{goodsell.py})}
+\label{sec:goodsell}
+
+Renders proteins in the distinctive \emph{Goodsell style}---the flat, desaturated, serendipitous aesthetic of David Goodsell's \emph{Molecule of the Month} series. Uses a fixed cyan/orange/magenta palette with a white background. Perfect for textbook figures and educational materials.
+
+\begin{lstlisting}[caption={goodsell.py usage}, label=lst:goodsell]
+$ pymol -c -q goodsell.py --pdb 1ubq --output goodsell_1ubq
+\end{lstlisting}
+
+\subsection{Molecular Surface (\texttt{surface.py})}
+\label{sec:surface}
+
+Renders the molecular surface (van der Waals, solvent-accessible, or solvent-excluded) with configurable coloring by chain, B-factor, electrostatic potential, or hydrophobicity. Supports transparent surfaces overlaid on a cartoon representation.
+
+\begin{lstlisting}[caption={surface.py usage}, label=lst:surface]
+$ pymol -c -q surface.py --pdb 1abc --surface-type convex --color-mode bfactor --output surface
+\end{lstlisting}
+
+\subsection{Mutation Analysis (\texttt{mutation.py})}
+\label{sec:mutation}
+
+Visualizes the structural context of one or more point mutations. Side chains of the wild-type and mutant residues are shown as sticks with rotamer labels. Calculates and reports the steric clash score (number of bad contacts within 3~\AA) for the mutant vs. wild type.
+
+\begin{lstlisting}[caption={mutation.py usage}, label=lst:mutation]
+$ pymol -c -q mutation.py --pdb 1abc --mutations A:32:ALA:VAL A:156:GLY:ALA --output mutation
+\end{lstlisting}
+
+\subsection{Active Site Mapping (\texttt{active\_site.py})}
+\label{sec:active_site}
+
+Identifies and renders the catalytic residues of an enzyme given its UniProt ID or PDB ID. Residues are selected by their proximity to the cofactor (if present) or the catalytic dyad/triad annotation from the Catalytic Site Atlas. Catalytic residues are shown as thicker sticks with element-colored CPK spheres.
+
+\begin{lstlisting}[caption={active\_site.py usage}, label=lst:active]
+$ pymol -c -q active_site.py --pdb 1phw --cofactor HEM --output active_site
+\end{lstlisting}
+
+\subsection{Distance Measurement (\texttt{distance.py})}
+\label{sec:distance}
+
+Annotates inter-atomic distances, angles, and dihedral angles between selected atoms or residues. Produces a clean figure with distance labels positioned automatically to avoid overlap. Supports multi-panel output for displaying a series of distances in a single figure.
+
+\begin{lstlisting}[caption={distance.py usage}, label=lst:dist]
+$ pymol -c -q distance.py --pdb 1ubq --residues "A:10,A:20,A:30" --output distances
+\end{lstlisting}
+
+\subsection{Spectrum Coloring (\texttt{spectrum.py})}
+\label{sec:spectrum}
+
+Colors a protein structure by a continuous scalar property---B-factor, pLDDT score (from AlphaFold2), RMSF, or any per-residue metric provided as a CSV file. Uses a perceptually-uniform gradient (viridis, plasma, or coolwarm) to avoid optical illusions common in rainbow gradients.
+
+\begin{lstlisting}[caption={spectrum.py usage}, label=lst:spectrum]
+$ pymol -c -q spectrum.py --pdb 1ubq --property bfactor --palette plasma --output spectrum
+\end{lstlisting}
+
+\subsection{Electron Density (\texttt{density.py})}
+\label{sec:density}
+
+Overlays X-ray crystallographic electron density maps (2Fo--Fc and Fo--Fc difference maps) or Cryo-EM half-maps onto a structure model. Supports automatic contour level setting based on resolution. Generates a zoomed panel around the region of interest with mesh and solid representations at different contour levels.
+
+\begin{lstlisting}[caption={density.py usage}, label=lst:density]
+$ pymol -c -q density.py --pdb 1abc --map-type 2fofc --contour-level 1.5 --output density
+\end{lstlisting}
+
+\subsection{NMR / MD Ensemble (\texttt{ensemble.py})}
+\label{sec:ensemble}
+
+Renders a conformational ensemble from NMR model families (PDB NMR entries) or molecular dynamics trajectories (DCD trajectories with PSF topology). All models are superposed on a reference structure, and a transparent cartoon of the entire ensemble is shown alongside a ribbon of the average structure. Per-residue RMSF is computed and optionally mapped as a spectrum.
+
+\begin{lstlisting}[caption={ensemble.py usage}, label=lst:ensemble]
+$ pymol -c -q ensemble.py --pdb 2jm5 --models 20 --output ensemble
+\end{lstlisting}
+
+\subsection{Animation (\texttt{animation.py})}
+\label{sec:animation}
+
+Generates a tweened PyMOL animation showing a smooth transition between two conformational states (e.g., open/closed, apo/holo, or before/after mutation). The script interpolates atom positions using a simple rigid-body alignment followed by per-atom linear interpolation. Output is a PML script with \texttt{mplay}, \texttt{msleep}, and \texttt{mstop} commands that PyMOL's internal tweening engine executes.
+
+\begin{lstlisting}[caption={animation.py usage}, label=lst:anim]
+$ pymol -c -q animation.py --from 1ubq_closed.pdb --to 1ubq_open.pdb --frames 60 --output anim
+\end{lstlisting}
+
+% =============================================================================
+\section{Installation}
+% =============================================================================
+
+PyMolClaw requires only two components: a Python interpreter with the standard library (no third-party packages needed) and a PyMOL installation with the Python bindings enabled.
+
+\subsection{Dependencies}
+
+\begin{enumerate}
+  \item \textbf{PyMOL} (Open-Source Edition, \url{https://github.com/schrodinger/pymol-open-source})
+\begin{lstlisting}[language=bash]
+conda install -c conda-forge pymol-open-source
+\end{lstlisting}
+  \item \textbf{PyMolClaw}
+\begin{lstlisting}[language=bash]
+git clone https://github.com/junior1p/PyMolClaw.git ~/PyMolClaw
+# Or install as a Claude Code skill:
+git clone https://github.com/junior1p/PyMolClaw.git ~/.claude/skills/pymol-claw
+\end{lstlisting}
+\end{enumerate}
+
+No additional pip packages are required. All dependencies are handled by conda.
+
+\subsection{Quick Start}
+
+\begin{lstlisting}[language=bash]
+# Align two structures
+cd ~/PyMolClaw
+python align.py --ref 1ubq --targets 4hhb --output my_alignment
+
+# Generate a binding site figure
+python binding_site.py --pdb 1abc --ligand LIG --chain A
+
+# Color by pLDDT (AlphaFold2 confidence)
+python spectrum.py --pdb AF-P01308 --property plddt --palette plasma
+\end{lstlisting}
+
+% =============================================================================
+\section{Comparison to Existing Tools}
+% =============================================================================
+
+Table~\ref{tab:comparison} compares PyMolClaw to established molecular visualization tools and to fully automated server-based solutions.
+
+\begin{table}[htbp]
+\centering
+\caption{Comparison of PyMolClaw to existing molecular visualization tools.}
+\label{tab:comparison}
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{lcccccc}
+\toprule
+Tool &
+  \rotatebox{45}{Headless} &
+  \rotatebox{45}{AI-agent callable} &
+  \rotatebox{45}{Natural language input} &
+  \rotatebox{45}{Reproducible PML output} &
+  \rotatebox{45}{Publication-quality PNG} &
+  \rotatebox{45}{PSE session output} \\
+\midrule
+PyMOL GUI          & No  & No  & No  & Yes & Yes & Yes \\
+Chimera UCSF       & No  & No  & No  & Yes & Yes & No  \\
+PLIP \cite{salentin2015plip}      & Yes & No  & No  & No  & Yes & No  \\
+NGLView \cite{nglview}          & No  & No  & No  & No  & No  & No  \\
+ChimeraX \cite{goddard2018chimerax}        & No  & No  & No  & Yes & Yes & Yes \\
+PyMolClaw          & Yes & Yes & Yes & Yes & Yes & Yes \\
+\bottomrule
+\end{tabular}}
+\end{table}
+
+Unlike static server-based tools (PLIP), PyMolClaw is fully autonomous and agent-native. Unlike GUI-based tools (PyMOL, ChimeraX), PyMolClaw runs headlessly without a display. Unlike web-based viewers (NGLView), PyMolClaw requires no browser environment and produces publication-ready raster output.
+
+% =============================================================================
+\section{Conclusion}
+% =============================================================================
+
+PyMolClaw provides a complete, minimal-dependency molecular visualization toolkit for AI agents. By standardizing the input (natural language), the process (argparse $\to$ PML $\to$ PyMOL headless), and the output (PNG + PML + PSE), it enables reproducible structural figure generation within AI-driven protein engineering, drug discovery, and scientific communication workflows.
+
+All 13 scripts are available at \url{https://github.com/junior1p/PyMolClaw} under the MIT license. The skill is registered at \url{https://clawrxiv.io/abs/2604.01493}.
+
+% =============================================================================
+\section*{References}
+% =============================================================================
+
+% NGLView
+\medskip\noindent\textbf{[1]} H. Nguyen, D. A. Case, A. S. Rose. NGLView---interactive molecular graphics for Jupyter notebooks. \emph{Bioinformatics}, 34(7):1241--1242, 2018.
+
+% PLIP
+\medskip\noindent\textbf{[2]} S. Salentin, S. L. Schreiber, V. J. Haupt, M. F. Adasme, M. Schroeder. PLIP: fully automated protein--ligand interaction profiler. \emph{Nucleic Acids Res.}, 43(W1):W443--W447, 2015.
+
+% ChimeraX
+\medskip\noindent\textbf{[3]} T. D. Goddard, C. C. Huang, E. C. Meng, E. F. Pettersen, G. S. Couch, J. H. Morris, T. E. Ferrin. UCSF ChimeraX: meeting modern challenges in visualization and analysis. \emph{Protein Sci.}, 27(1):14--25, 2018.
+
+% PyMOL
+\medskip\noindent\textbf{[4]} Schrödinger, LLC. The PyMOL Molecular Graphics System, Version 2.5. \url{https://pymol.org/2/}.
+
+% AlphaFold
+\medskip\noindent\textbf{[5]} J. Jumper, R. Evans, A. Pritzel, et al. Highly accurate protein structure prediction with AlphaFold. \emph{Nature}, 596:583--589, 2021.
+
+% =============================================================================
+\section*{Appendix: Command Reference}
+% =============================================================================
+
+Table~\ref{tab:commands} lists all 13 scripts with their primary arguments.
+
+\begin{longtable}{lll}
+\caption{Command reference for all 13 PyMolClaw scripts.}
+\label{tab:commands}\\
+\toprule
+Script & Required arguments & Optional arguments \\
+\midrule
+\endhead
+\texttt{align.py}       & \texttt{--ref}, \texttt{--targets} & \texttt{--cutoff}, \texttt{--method} \\
+\texttt{overview.py}    & \texttt{--pdb}                    & \texttt{--chains}, \texttt{--domain-color} \\
+\texttt{binding\_site.py} & \texttt{--pdb}, \texttt{--ligand} & \texttt{--chain}, \texttt{--cutoff} \\
+\texttt{ppi.py}         & \texttt{--pdb}                    & \texttt{--chains}, \texttt{--color-mode} \\
+\texttt{goodsell.py}    & \texttt{--pdb}                    & \texttt{--palette}, \texttt{--background} \\
+\texttt{surface.py}     & \texttt{--pdb}                    & \texttt{--type}, \texttt{--color-mode} \\
+\texttt{mutation.py}    & \texttt{--pdb}, \texttt{--mutations} & \texttt{--rotamers} \\
+\texttt{active\_site.py} & \texttt{--pdb}                    & \texttt{--cofactor}, \texttt{--cutoff} \\
+\texttt{distance.py}    & \texttt{--pdb}                    & \texttt{--residues}, \texttt{--labels} \\
+\texttt{spectrum.py}    & \texttt{--pdb}, \texttt{--property} & \texttt{--palette}, \texttt{--range} \\
+\texttt{density.py}     & \texttt{--pdb}                    & \texttt{--map-type}, \texttt{--contour} \\
+\texttt{ensemble.py}    & \texttt{--pdb}                    & \texttt{--models}, \texttt{--traj} \\
+\texttt{animation.py}   & \texttt{--from}, \texttt{--to}    & \texttt{--frames}, \texttt{--interpolate} \\
+\bottomrule
+\end{longtable}
+
+\end{document}
