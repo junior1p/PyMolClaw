@@ -3,7 +3,7 @@ name: pymol-claw
 description: >
   A comprehensive molecular visualization and analysis skill powered by PyMOL.
   Use this whenever the user wants to visualize, analyze, or compare protein/nucleic acid/small molecule structures.
-  
+
   Triggers include ANY of:
   - PyMOL, molecular visualization, protein rendering, PDB, structure figure
   - protein, ligand, binding site, pocket, active site, catalytic residue
@@ -23,7 +23,11 @@ description: >
 
 # PyMolClaw
 
-A comprehensive skill for molecular visualization, structure comparison, and analysis using PyMOL.
+A comprehensive skill for molecular visualization, structure comparison, and analysis using PyMOL. One natural language description → publication-quality figure + PML script + PSE session.
+
+## 👥 Authors
+
+- **Max** — BioTender
 
 ## Capabilities
 
@@ -48,9 +52,13 @@ A comprehensive skill for molecular visualization, structure comparison, and ana
 align 1ubq with 4hhb
 show binding site of 1abc with ligand LIG
 make a goodsell style figure of 6m0j
-compare these two structures: 1ubq and 2流
+compare these two structures: 1ubq and 4hhb
 show the active site with catalytic residues in chain A
-render the surface of this protein with electrostatic potential
+render the surface of this protein
+show the mutation site at residue 150 chain A
+color by B-factor / pLDDT
+show electron density around the ligand
+make an animation of the protein rotating
 ```
 
 ## Workflow
@@ -61,7 +69,7 @@ render the surface of this protein with electrostatic potential
 |---|---|---|
 | align / compare / RMSD | Align two structures | `align.py` |
 | binding site / ligand / pocket | Ligand interactions | `binding_site.py` |
-| protein-protein / interface | PPI analysis | `ppi.py` |
+| protein-protein / interface / PPI | PPI analysis | `ppi.py` |
 | active site / catalytic | Catalytic residues | `active_site.py` |
 | surface / electrostatics | Surface rendering | `surface.py` |
 | mutation / variant | Mutation analysis | `mutation.py` |
@@ -76,99 +84,99 @@ render the surface of this protein with electrostatic potential
 ### Step 2: Execute Script
 
 ```bash
-python /root/PyMolClaw/scripts/<script>.py --pdb1 1ubq --pdb2 4hhb [--outdir /path/to/output]
+python /root/PyMolClaw/scripts/<script>.py --pdb1 1ubq --pdb2 4hhb [--outdir /tmp]
 ```
 
 All scripts accept:
-- `--pdb1` / `--pdb2` — PDB IDs or local file paths
-- `--chain1` / `--chain2` — Optional chain ID
+- `--pdb` / `--pdb1` / `--pdb2` — PDB IDs or local file paths
+- `--chain` / `--chain_a` / `--chain_b` — Optional chain ID
 - `--outdir` — Output directory (default: /tmp/pymol_output)
-- `--format` — Output format for PNG (default: png)
+- `--name` — Object name in PyMOL (default varies by script)
 
 ### Step 3: Deliver Output
 
 Every task returns three files:
-1. **PNG image** — Rendered figure
-2. **PML script** — Reproducible script for tweaking
+1. **PNG image** — Rendered figure (2400×1800, dpi=150)
+2. **PML script** — Reproducible PyMOL script for tweaking
 3. **PSE session** — Interactive PyMOL session
 
 ## Script Reference
 
 ### align.py — Structure Alignment & RMSD
 ```
-python align.py --pdb1 1ubq --pdb2 4hhb [--cutoff 5.0] [--outdir /tmp]
+python scripts/align.py --pdb1 1ubq --pdb2 4hhb [--cutoff 5.0] [--outdir /tmp]
 ```
-Outputs: aligned.png, rmsd.txt, aligned.pse
+Outputs: aligned.png, aligned.pse, rmsd.txt
 
 ### binding_site.py — Ligand Binding Site
 ```
-python binding_site.py --pdb 1abc --ligand LIG [--cutoff 4.0] [--outdir /tmp]
+python scripts/binding_site.py --pdb 1abc --ligand LIG [--cutoff 4.0] [--outdir /tmp]
 ```
 Outputs: binding_site.png, binding_site.pse
 
 ### ppi.py — Protein-Protein Interface
 ```
-python ppi.py --pdb 6m0j --chain_a A --chain_b B [--cutoff 4.0] [--outdir /tmp]
+python scripts/ppi.py --pdb 6m0j --chain_a A --chain_b B [--cutoff 4.0] [--outdir /tmp]
 ```
 Outputs: ppi.png, ppi.pse
 
 ### active_site.py — Active Site / Catalytic Residues
 ```
-python active_site.py --pdb 1abc --residues "100,150,200" --chain A [--cutoff 5.0] [--outdir /tmp]
+python scripts/active_site.py --pdb 1abc --residues "100,150,200" --chain A [--cutoff 5.0] [--outdir /tmp]
 ```
 Outputs: active_site.png, active_site.pse
 
 ### surface.py — Surface Rendering
 ```
-python surface.py --pdb 1ubq [--style surface|mesh|dots] [--transparency 0.5] [--outdir /tmp]
+python scripts/surface.py --pdb 1ubq [--style surface|mesh|dots] [--transparency 0.4] [--outdir /tmp]
 ```
 Outputs: surface.png, surface.pse
 
 ### mutation.py — Mutation Site Analysis
 ```
-python mutation.py --pdb 1ubq --residue 150 --chain A [--cutoff 5.0] [--outdir /tmp]
+python scripts/mutation.py --pdb 1ubq --residue 150 --chain A [--cutoff 5.0] [--outdir /tmp]
 ```
 Outputs: mutation.png, mutation.pse
 
 ### distance.py — Distances and Polar Contacts
 ```
-python distance.py --pdb 1abc --sele1 "chain A and resi 100" --sele2 "chain B and resi 200" [--mode hbond] [--outdir /tmp]
+python scripts/distance.py --pdb 1abc --sele1 "chain A and resi 100" --sele2 "chain B and resi 200" [--mode hbond] [--outdir /tmp]
 ```
 Outputs: distance.png, distance.pse
 
 ### spectrum.py — Spectrum Coloring
 ```
-python spectrum.py --pdb 1ubq --property bfactor|plddt|occupancy [--palette blue_white_red] [--outdir /tmp]
+python scripts/spectrum.py --pdb 1ubq --property bfactor|plddt|occupancy [--palette blue_white_red] [--outdir /tmp]
 ```
 Outputs: spectrum.png, spectrum.pse
 
 ### goodsell.py — Goodsell Style Illustration
 ```
-python goodsell.py --pdb 1ubq [--outdir /tmp]
+python scripts/goodsell.py --pdb 1ubq [--outdir /tmp]
 ```
 Outputs: goodsell.png, goodsell.pse
 
 ### density.py — Electron Density / EM Maps
 ```
-python density.py --pdb 1abc --map 1abc_2fofc.ccp4 [--level 1.5] [--outdir /tmp]
+python scripts/density.py --pdb 1abc [--map map.ccp4] [--level 1.5] [--outdir /tmp]
 ```
 Outputs: density.png, density.pse
 
 ### ensemble.py — NMR / Trajectory Ensemble
 ```
-python ensemble.py --pdb 1r55 [--mode nmr|trajectory] [--outdir /tmp]
+python scripts/ensemble.py --pdb 1r55 [--mode nmr|trajectory] [--outdir /tmp]
 ```
 Outputs: ensemble.png, ensemble.pse
 
 ### animation.py — Tween Animation
 ```
-python animation.py --pdb 1ubq --frames 60 [--outdir /tmp]
+python scripts/animation.py --pdb 1ubq --frames 60 [--outdir /tmp]
 ```
-Outputs: animation.gif, animation.pse
+Outputs: animation.png (frame_*.png sequence), animation.pse
 
 ### overview.py — General Protein Overview
 ```
-python overview.py --pdb 1ubq [--style cartoon|surface|ribbon] [--chain A] [--outdir /tmp]
+python scripts/overview.py --pdb 1ubq [--style cartoon|surface|ribbon|sticks] [--chain A] [--outdir /tmp]
 ```
 Outputs: overview.png, overview.pse
 
