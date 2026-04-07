@@ -1,0 +1,25 @@
+\begin{table}[htbp]
+\centering
+\caption{The 13 PyMolClaw scripts and their capabilities.}
+\label{tab:scripts}
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{lll}
+\toprule
+Script filename & Task type & Primary output \\
+\midrule
+\texttt{align.py}           & Structure superposition + RMSD            & PNG + RMSD CSV \\
+\texttt{overview.py}         & General protein overview                   & PNG             \\
+\texttt{binding\_site.py}   & Ligand binding site + polar contacts      & PNG + distance labels \\
+\texttt{ppi.py}             & Protein--protein interaction interface     & PNG             \\
+\texttt{goodsell.py}        & Goodsell-style scientific illustration    & PNG             \\
+\texttt{surface.py}         & Molecular surface rendering                & PNG             \\
+\texttt{mutation.py}        & Point mutation structural analysis         & PNG + clash report \\
+\texttt{active\_site.py}    & Catalytic / active site residues           & PNG             \\
+\texttt{distance.py}        & Inter-atomic distances and angles        & PNG + labeled distances \\
+\texttt{spectrum.py}        & B-factor / pLDDT / RMSF spectrum coloring & PNG             \\
+\texttt{density.py}         & Electron density / Cryo-EM map overlay    & PNG             \\
+\texttt{ensemble.py}        & NMR model family / MD trajectory ensemble  & PNG + RMSF CSV \\
+\texttt{animation.py}       & Tweened conformational animation           & PML animation script \\
+\bottomrule
+\end{tabular}}
+\end{table}
